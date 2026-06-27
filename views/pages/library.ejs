@@ -1,0 +1,217 @@
+<%- include('../partials/header') %>
+
+<!-- Banner Statistik Library -->
+<section class="bg-gradient-to-r from-steamDark to-steamCard p-6 rounded-lg border border-steamBlue/20 mb-8 shadow-lg">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div>
+      <h1 class="text-xl font-extrabold text-white tracking-wide uppercase">DASHBOARD PUSTAKA GAME</h1>
+      <p class="text-xs text-gray-400 mt-1">Status dan aktivitas lisensi permainan Anda di VaporVault</p>
+    </div>
+    
+    <!-- Statistik Widget -->
+    <div class="grid grid-cols-3 gap-4 text-center">
+      <div class="bg-steamDarker/80 px-4 py-2.5 rounded border border-steamBlue/10">
+        <div class="text-xl font-bold text-steamAccent" id="stat-total-games"><%= stats.totalGames %></div>
+        <div class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mt-0.5">Game Dimiliki</div>
+      </div>
+      <div class="bg-steamDarker/80 px-4 py-2.5 rounded border border-steamBlue/10">
+        <div class="text-xl font-bold text-emerald-400" id="stat-total-playtime"><%= stats.totalPlaytime %></div>
+        <div class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mt-0.5">Total Jam Main</div>
+      </div>
+      <div class="bg-steamDarker/80 px-4 py-2.5 rounded border border-steamBlue/10">
+        <div class="text-xl font-bold text-blue-400" id="stat-installed-count"><%= stats.installedCount %></div>
+        <div class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold mt-0.5">Terinstal</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Grid Game di Library -->
+<div class="space-y-4">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-lg font-bold text-white tracking-wide uppercase">Pustaka Game Saya</h2>
+  </div>
+
+  <% if (libraryEntries.length === 0) { %>
+    <div class="bg-steamDark/80 border border-steamBlue/10 rounded-lg p-12 text-center shadow-lg">
+      <div class="text-4xl mb-4">🎮</div>
+      <p class="text-gray-300 text-lg mb-2">Pustaka game Anda masih kosong.</p>
+      <p class="text-xs text-gray-500 mb-6">Beli game di toko untuk menambahkannya ke pustaka ini.</p>
+      <a href="/" class="bg-steamBlue hover:bg-steamBlue/80 text-white text-xs font-bold py-2.5 px-6 rounded transition tracking-wider">
+        PERGI KE TOKO
+      </a>
+    </div>
+  <% } else { %>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <% libraryEntries.forEach(entry => { %>
+        <div class="bg-steamCard/90 border border-steamBlue/10 rounded-lg p-4 flex flex-col sm:flex-row gap-4 justify-between items-center hover:border-steamBlue/30 transition duration-200"
+             id="library-card-<%= entry.id %>">
+          
+          <!-- Informasi Game (Kiri) -->
+          <div class="flex items-center space-x-4 w-full sm:w-auto">
+            <img src="<%= entry.game.image_url || 'https://via.placeholder.com/120x60/1b2838/ffffff?text=VaporVault' %>" 
+                 alt="<%= entry.game.title %>" class="w-24 h-12 object-cover rounded shadow">
+            <div>
+              <h3 class="font-bold text-white leading-tight"><%= entry.game.title %></h3>
+              <div class="flex space-x-4 mt-1.5 text-xs text-gray-400">
+                <span>Waktu Bermain: <strong class="text-steamAccent" id="playtime-<%= entry.id %>"><%= parseFloat(entry.playtime_hours).toFixed(1) %> jam</strong></span>
+                <span>•</span>
+                <span>Status: <strong class="text-gray-300" id="status-<%= entry.id %>"><%= entry.installation_status %></strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aksi Game (Kanan) -->
+          <div class="flex space-x-2 w-full sm:w-auto justify-end">
+            <!-- Tombol Install / Uninstall -->
+            <button onclick="toggleInstallation(<%= entry.id %>, '<%= entry.installation_status %>')"
+                    id="btn-install-<%= entry.id %>"
+                    class="bg-steamButton hover:bg-slate-700 text-gray-300 text-xs font-bold py-2 px-3.5 rounded transition">
+              <%= entry.installation_status === 'Installed' || entry.installation_status === 'Ready to Play' ? 'Hapus Instalasi' : 'Instal Game' %>
+            </button>
+            
+            <!-- Tombol Mainkan Game -->
+            <button onclick="simulatePlay(<%= entry.id %>)"
+                    id="btn-play-<%= entry.id %>"
+                    class="bg-steamGreen hover:bg-steamGreenHover text-white text-xs font-bold py-2 px-4 rounded transition"
+                    <%= entry.installation_status === 'Not Installed' ? 'disabled' : '' %>>
+              Mainkan
+            </button>
+          </div>
+
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<!-- Modal Dialog / Toast Notifikasi -->
+<div id="toast" class="fixed bottom-5 right-5 bg-steamDark border border-steamBlue/50 text-white text-xs font-semibold py-3.5 px-5 rounded-lg shadow-2xl transition-all duration-300 transform translate-y-24 opacity-0 z-50">
+  <span id="toast-text"></span>
+</div>
+
+<script>
+  // Tampilkan notifikasi melayang (Toast)
+  function showToast(text, isSuccess = true) {
+    const toast = document.getElementById('toast');
+    const toastText = document.getElementById('toast-text');
+    toastText.innerText = text;
+    
+    toast.className = `fixed bottom-5 right-5 text-white text-xs font-semibold py-3.5 px-5 rounded-lg shadow-2xl transition-all duration-300 transform z-50 border ${
+      isSuccess ? 'bg-emerald-950 border-emerald-500' : 'bg-rose-950 border-rose-500'
+    }`;
+    
+    // Show
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(24px)';
+    }, 3000);
+  }
+
+  // Aksi toggle instalasi game
+  async function toggleInstallation(libraryId, currentStatus) {
+    const btn = document.getElementById(`btn-install-${libraryId}`);
+    const playBtn = document.getElementById(`btn-play-${libraryId}`);
+    const statusText = document.getElementById(`status-${libraryId}`);
+    
+    // Tentukan target status berikutnya
+    const isCurrentlyInstalled = (currentStatus === 'Installed' || currentStatus === 'Ready to Play');
+    const targetStatus = isCurrentlyInstalled ? 'Not Installed' : 'Ready to Play';
+    
+    btn.disabled = true;
+    btn.innerText = isCurrentlyInstalled ? 'MENGHAPUS...' : 'MENGINSTAL...';
+    
+    try {
+      const response = await fetch('/api/library/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ libraryId, status: targetStatus })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update UI
+        statusText.innerText = targetStatus;
+        showToast(result.message);
+        
+        // Update status total counter terinstal
+        const statInstalled = document.getElementById('stat-installed-count');
+        let currentInstalledCount = parseInt(statInstalled.innerText);
+        if (targetStatus === 'Ready to Play') {
+          currentInstalledCount++;
+          btn.innerText = 'Hapus Instalasi';
+          playBtn.disabled = false;
+        } else {
+          currentInstalledCount--;
+          btn.innerText = 'Instal Game';
+          playBtn.disabled = true;
+        }
+        statInstalled.innerText = currentInstalledCount;
+        
+        // Update handler parameter
+        btn.setAttribute('onclick', `toggleInstallation(${libraryId}, '${targetStatus}')`);
+      } else {
+        showToast(result.message, false);
+        btn.innerText = isCurrentlyInstalled ? 'Hapus Instalasi' : 'Instal Game';
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Gagal mengubah status instalasi game.', false);
+      btn.innerText = isCurrentlyInstalled ? 'Hapus Instalasi' : 'Instal Game';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // Aksi simulasi bermain game
+  async function simulatePlay(libraryId) {
+    const playBtn = document.getElementById(`btn-play-${libraryId}`);
+    const playtimeText = document.getElementById(`playtime-${libraryId}`);
+    
+    playBtn.disabled = true;
+    playBtn.innerText = 'BERMAIN...';
+    
+    try {
+      const response = await fetch('/api/library/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ libraryId })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update playtime teks
+        playtimeText.innerText = result.newPlaytime + ' jam';
+        showToast(result.message);
+        
+        // Re-calculate total playtime stats
+        recalculateTotalPlaytime();
+      } else {
+        showToast(result.message, false);
+      }
+    } catch (error) {
+      console.error(error);
+      showToast('Gagal mensimulasikan waktu bermain.', false);
+    } finally {
+      playBtn.disabled = false;
+      playBtn.innerText = 'Mainkan';
+    }
+  }
+
+  // Menghitung ulang total playtime di widget banner statistik secara real-time
+  function recalculateTotalPlaytime() {
+    let total = 0.0;
+    document.querySelectorAll('[id^="playtime-"]').forEach(el => {
+      total += parseFloat(el.innerText);
+    });
+    document.getElementById('stat-total-playtime').innerText = total.toFixed(1);
+  }
+</script>
+
+<%- include('../partials/footer') %>
